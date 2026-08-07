@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko" class="h-full bg-slate-50">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QuoteCard Studio - 명언 및 성경구절 이미지 카드 제작 서비스</title>
+  
+  <!-- SEO Meta Tags -->
+  <meta name="description" content="명언, 성경구절, 명대사 이미지 카드를 쉽고 빠르게 제작하는 웹 서비스. 반응형 라이브 프리뷰, 멀티 API 이미지 검색, 고화질 다운로드 제공." />
+  <meta name="keywords" content="명언 카드, 성경구절 카드, 이미지 카드 제작, Quote Card Generator, 캔버스 카드" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Gowun+Batang:wght@400;700&family=Inter:wght@400;500;600;700&family=Montserrat:wght@500;700&family=Noto+Sans+KR:wght@300;400;500;700&family=Noto+Serif+KR:wght@400;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'Noto Sans KR', 'sans-serif'],
+            serif: ['Noto Serif KR', 'Gowun Batang', 'serif'],
+            batang: ['Gowun Batang', 'serif'],
+            blackhan: ['Black Han Sans', 'sans-serif'],
+            playfair: ['Playfair Display', 'serif'],
+            montserrat: ['Montserrat', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              50: '#f0f7ff',
+              100: '#e0effe',
+              500: '#3b82f6',
+              600: '#2563eb',
+              700: '#1d4ed8',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <link rel="stylesheet" href="/src/style.css" />
+</head>
+<body class="h-full text-slate-800 font-sans antialiased selection:bg-blue-100 selection:text-blue-700">
+
+  <!-- ==================== 1. LOGIN MODAL ==================== -->
+  <div id="loginModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300">
+    <div class="w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-8 transform transition-all">
+      <div class="text-center mb-8">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-50 text-blue-600 mb-4 shadow-inner">
+          <i data-lucide="quote" class="w-8 h-8"></i>
+        </div>
+        <h1 class="text-2xl font-bold text-slate-900 tracking-tight">QuoteCard Studio</h1>
+        <p class="text-sm text-slate-500 mt-1">명언 & 성경구절 카드 제작 서비스에 오신 것을 환영합니다.</p>
+      </div>
+
+      <form id="loginForm" class="space-y-5">
+        <div>
+          <label for="loginId" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">아이디 (ID)</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i data-lucide="user" class="w-4 h-4"></i>
+            </div>
+            <input type="text" id="loginId" autocomplete="username" required placeholder="admin"
+              class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+          </div>
+        </div>
+
+        <div>
+          <label for="loginPassword" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">비밀번호 (Password)</label>
+          <div class="relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <i data-lucide="lock" class="w-4 h-4"></i>
+            </div>
+            <input type="password" id="loginPassword" autocomplete="current-password" required placeholder="••••••••"
+              class="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+          </div>
+        </div>
+
+        <div id="loginError" class="hidden p-3 rounded-xl bg-red-50 border border-red-200 text-xs text-red-600 flex items-center gap-2">
+          <i data-lucide="alert-circle" class="w-4 h-4 shrink-0"></i>
+          <span>아이디 또는 비밀번호가 올바르지 않습니다.</span>
+        </div>
+
+        <button type="submit"
+          class="w-full py-3 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2">
+          <span>로그인하여 시작하기</span>
+          <i data-lucide="arrow-right" class="w-4 h-4"></i>
+        </button>
+      </form>
+    </div>
+  </div>
+
+
+  <!-- ==================== 2. MAIN APP CONTAINER ==================== -->
+  <div id="app" class="hidden min-h-full flex flex-col">
+
+    <!-- Top Navigation Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shadow-md">
+            <i data-lucide="quote" class="w-5 h-5"></i>
+          </div>
+          <div>
+            <h2 class="text-lg font-bold text-slate-900 leading-tight">QuoteCard Studio</h2>
+            <p class="text-xs text-slate-500 hidden sm:block">명언 & 성경구절 이미지 카드 생성기</p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-3">
+          <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+            White Mode
+          </span>
+
+          <button id="logoutBtn" title="로그아웃"
+            class="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all flex items-center gap-1.5">
+            <i data-lucide="log-out" class="w-3.5 h-3.5"></i>
+            <span class="hidden sm:inline">로그아웃</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Responsive Workspace Layout -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+      
+      <!-- Responsive Grid Layout:
+           Mobile: Stacked (Top Sticky Preview, Bottom Controls Scroll)
+           PC: 50% Left Controls / 50% Right Preview Grid
+      -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+
+        <!-- ==================== LEFT COLUMN: CONTROLS & INPUTS (lg:col-span-6) ==================== -->
+        <div class="lg:col-span-6 space-y-6 order-2 lg:order-1">
+
+          <!-- 1. Text Input & Typography Panel -->
+          <section class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="type" class="w-5 h-5 text-blue-600"></i>
+                <h3 class="font-bold text-slate-900 text-base">명언 텍스트 및 스타일 설정</h3>
+              </div>
+              <span id="charCounter" class="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-600">0 / 100</span>
+            </div>
+
+            <!-- Quote Textarea -->
+            <div>
+              <label for="quoteText" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
+                명언 / 성경구절 내용 (최대 100자)
+              </label>
+              <textarea id="quoteText" maxlength="100" rows="3"
+                placeholder="예: 너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요 (마태복음 5:14)"
+                class="w-full p-3 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all resize-none"></textarea>
+            </div>
+
+            <!-- Speaker Name & Title -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label for="speakerName" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
+                  말한 사람 / 출처
+                </label>
+                <input type="text" id="speakerName" placeholder="예: 예수 그리스도 / 마태복음 5:14"
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+              </div>
+              <div>
+                <label for="speakerTitle" class="block text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1.5">
+                  직함 / 부제목 (선택사항)
+                </label>
+                <input type="text" id="speakerTitle" placeholder="예: 산상수훈 메시지"
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all" />
+              </div>
+            </div>
+
+            <!-- Typography Controls Grid -->
+            <div class="pt-2 border-t border-slate-100 space-y-4">
+              <!-- Font Family & Alignment -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label for="fontFamilySelect" class="block text-xs font-semibold text-slate-600 mb-1.5">서체 (글꼴)</label>
+                  <select id="fontFamilySelect"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:bg-white">
+                    <option value="'Noto Serif KR', serif" selected>노토 서리프 (명조체 - 진중함)</option>
+                    <option value="'Gowun Batang', serif">고운 바탕 (감성 바탕체)</option>
+                    <option value="'Black Han Sans', sans-serif">블랙 한 산스 (강렬한 헤드라인)</option>
+                    <option value="'Noto Sans KR', sans-serif">노토 산스 (깔끔한 고딕체)</option>
+                    <option value="'Playfair Display', serif">Playfair Display (영문 클래식)</option>
+                    <option value="'Montserrat', sans-serif">Montserrat (영문 모던)</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1.5">텍스트 정렬</label>
+                  <div class="flex items-center rounded-xl bg-slate-100 p-1 border border-slate-200">
+                    <button type="button" id="alignLeft" class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center">
+                      <i data-lucide="align-left" class="w-4 h-4"></i>
+                    </button>
+                    <button type="button" id="alignCenter" class="flex-1 py-1.5 text-xs font-medium rounded-lg bg-white text-blue-600 shadow-sm transition-all flex items-center justify-center">
+                      <i data-lucide="align-center" class="w-4 h-4"></i>
+                    </button>
+                    <button type="button" id="alignRight" class="flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center">
+                      <i data-lucide="align-right" class="w-4 h-4"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Font Size Slider -->
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label for="fontSizeSlider" class="text-xs font-semibold text-slate-600">글자 크기</label>
+                  <span id="fontSizeVal" class="text-xs font-bold text-blue-600">36px</span>
+                </div>
+                <input type="range" id="fontSizeSlider" min="20" max="64" value="36" step="1"
+                  class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+              </div>
+
+              <!-- Font Color & Swatches -->
+              <div>
+                <label for="textColorPicker" class="block text-xs font-semibold text-slate-600 mb-1.5">글자 색상</label>
+                <div class="flex items-center gap-3">
+                  <input type="color" id="textColorPicker" value="#ffffff"
+                    class="w-10 h-10 rounded-xl cursor-pointer border border-slate-300 p-0.5" />
+                  
+                  <!-- Color Preset Chips -->
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <button type="button" data-color="#ffffff" class="w-7 h-7 rounded-full bg-white border border-slate-300 shadow-sm hover:scale-110 transition-transform" title="화이트"></button>
+                    <button type="button" data-color="#0f172a" class="w-7 h-7 rounded-full bg-slate-900 hover:scale-110 transition-transform" title="다크 슬레이트"></button>
+                    <button type="button" data-color="#f59e0b" class="w-7 h-7 rounded-full bg-amber-500 hover:scale-110 transition-transform" title="골드"></button>
+                    <button type="button" data-color="#10b981" class="w-7 h-7 rounded-full bg-emerald-500 hover:scale-110 transition-transform" title="에메랄드"></button>
+                    <button type="button" data-color="#ef4444" class="w-7 h-7 rounded-full bg-red-500 hover:scale-110 transition-transform" title="로즈"></button>
+                    <button type="button" data-color="#06b6d4" class="w-7 h-7 rounded-full bg-cyan-500 hover:scale-110 transition-transform" title="시안"></button>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Effect Toggles: Shadow, Stroke, Overlay -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span class="text-xs font-semibold text-slate-700">텍스트 그림자 (Shadow)</span>
+                  <input type="checkbox" id="toggleShadow" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+                </div>
+                <div class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+                  <span class="text-xs font-semibold text-slate-700">텍스트 외곽선 (Outline)</span>
+                  <input type="checkbox" id="toggleStroke" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <!-- Overlay Opacity Slider -->
+              <div>
+                <div class="flex justify-between items-center mb-1">
+                  <label for="overlayOpacitySlider" class="text-xs font-semibold text-slate-600">가독성용 배경 어둡기 (Dark Overlay)</label>
+                  <span id="overlayOpacityVal" class="text-xs font-bold text-blue-600">45%</span>
+                </div>
+                <input type="range" id="overlayOpacitySlider" min="0" max="90" value="45" step="5"
+                  class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+              </div>
+            </div>
+          </section>
+
+
+          <!-- 2. Collapsible API Key Settings Panel -->
+          <section class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden transition-all">
+            <button type="button" id="toggleApiPanel" class="w-full p-4 bg-slate-50 hover:bg-slate-100 flex items-center justify-between transition-colors">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center">
+                  <i data-lucide="key" class="w-4 h-4"></i>
+                </div>
+                <div class="text-left">
+                  <h4 class="font-bold text-slate-900 text-sm">API 키 설정 (Google, Unsplash, Pixabay)</h4>
+                  <p class="text-xs text-slate-500">인터넷 이미지 실시간 라이브 검색 API 설정</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <span id="apiStatusBadge" class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-slate-200 text-slate-600">샘플 모드</span>
+                <i data-lucide="chevron-down" id="apiChevron" class="w-5 h-5 text-slate-400 transition-transform duration-200"></i>
+              </div>
+            </button>
+
+            <!-- Collapsible Body -->
+            <div id="apiPanelContent" class="hidden p-5 border-t border-slate-200 space-y-4 bg-white">
+              <div class="p-3 bg-blue-50 border border-blue-200 rounded-xl text-xs text-blue-700 flex items-start gap-2">
+                <i data-lucide="info" class="w-4 h-4 shrink-0 mt-0.5"></i>
+                <span>API 키를 설정하지 않으셔도 <strong>무료 고화질 샘플 갤러리</strong> 및 <strong>로컬 파일 업로드</strong>를 제한 없이 사용하실 수 있습니다. 입력된 키는 브라우저 LocalStorage에 안전하게 저장됩니다.</span>
+              </div>
+
+              <!-- Google Custom Search -->
+              <div class="space-y-2">
+                <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-blue-500"></span> Google Custom Search API
+                </span>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <input type="password" id="googleApiKey" placeholder="Google API Key"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  <input type="password" id="googleCx" placeholder="Search Engine ID (CX)"
+                    class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                </div>
+              </div>
+
+              <!-- Unsplash API Key -->
+              <div class="space-y-1.5">
+                <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-slate-900"></span> Unsplash Access Key
+                </span>
+                <input type="password" id="unsplashAccessKey" placeholder="Unsplash Access Key"
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              <!-- Pixabay API Key -->
+              <div class="space-y-1.5">
+                <span class="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500"></span> Pixabay API Key
+                </span>
+                <input type="password" id="pixabayApiKey" placeholder="Pixabay API Key"
+                  class="w-full px-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs font-mono text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              <!-- Action button -->
+              <div class="flex justify-end pt-2">
+                <button type="button" id="saveApiKeysBtn"
+                  class="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold rounded-xl shadow transition-all flex items-center gap-1.5">
+                  <i data-lucide="save" class="w-3.5 h-3.5"></i>
+                  <span>API 키 저장하기</span>
+                </button>
+              </div>
+            </div>
+          </section>
+
+
+          <!-- 3. Image Management Panel (Background & Speaker) -->
+          <section class="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm space-y-5">
+            <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div class="flex items-center gap-2">
+                <i data-lucide="image" class="w-5 h-5 text-blue-600"></i>
+                <h3 class="font-bold text-slate-900 text-base">이미지 관리 및 선택</h3>
+              </div>
+            </div>
+
+            <!-- Target Slot Selector Tabs (배경 vs 인물) -->
+            <div class="flex rounded-xl bg-slate-100 p-1 border border-slate-200">
+              <button type="button" id="targetSlotBg"
+                class="flex-1 py-2 text-xs font-bold rounded-lg bg-white text-blue-600 shadow-sm transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="wallpaper" class="w-4 h-4"></i>
+                <span>배경 이미지</span>
+              </button>
+              <button type="button" id="targetSlotSpeaker"
+                class="flex-1 py-2 text-xs font-bold rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center gap-1.5">
+                <i data-lucide="user-circle" class="w-4 h-4"></i>
+                <span>인물(화자) 이미지</span>
+              </button>
+            </div>
+
+            <!-- Image Method Selector: Local Upload / Multi-API Search / Sample Gallery -->
+            <div class="space-y-4">
+              <!-- Method Tabs -->
+              <div class="flex items-center gap-2 border-b border-slate-200 pb-2">
+                <button type="button" id="methodTabSearch" class="px-3 py-1.5 text-xs font-semibold text-blue-600 border-b-2 border-blue-600 transition-all flex items-center gap-1">
+                  <i data-lucide="search" class="w-3.5 h-3.5"></i>
+                  <span>인터넷 검색</span>
+                </button>
+                <button type="button" id="methodTabSample" class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-all flex items-center gap-1">
+                  <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                  <span>추천 샘플</span>
+                </button>
+                <button type="button" id="methodTabUpload" class="px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-all flex items-center gap-1">
+                  <i data-lucide="upload" class="w-3.5 h-3.5"></i>
+                  <span>로컬 파일 업로드</span>
+                </button>
+              </div>
+
+              <!-- View A: Internet Multi-API Search -->
+              <div id="viewSearch" class="space-y-3">
+                <div class="flex gap-2">
+                  <div class="relative flex-1">
+                    <input type="text" id="searchInput" placeholder="검색어 입력 (예: 은하수, 평화, 십자가, 예수, 앤디 워홀)..."
+                      class="w-full pl-9 pr-3 py-2 bg-slate-50 border border-slate-300 rounded-xl text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                    <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute left-3 top-2.5"></i>
+                  </div>
+                  <button type="button" id="searchBtn"
+                    class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow transition-all flex items-center gap-1">
+                    <span>검색</span>
+                  </button>
+                </div>
+
+                <!-- API Source Tags Legend -->
+                <div class="flex items-center gap-3 text-[11px] text-slate-500 pt-1">
+                  <span class="font-semibold text-slate-700">검색 대상:</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-500"></span> Google</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-800"></span> Unsplash</span>
+                  <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Pixabay</span>
+                </div>
+              </div>
+
+              <!-- View B: Recommended Sample Gallery -->
+              <div id="viewSample" class="hidden space-y-3">
+                <div class="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+                  <button type="button" data-category="all" class="sample-cat-btn px-3 py-1 rounded-lg bg-blue-600 text-white font-medium">전체</button>
+                  <button type="button" data-category="nature" class="sample-cat-btn px-3 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">자연/풍경</button>
+                  <button type="button" data-category="bible" class="sample-cat-btn px-3 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">성경/십자가</button>
+                  <button type="button" data-category="abstract" class="sample-cat-btn px-3 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">감성/아키텍처</button>
+                  <button type="button" data-category="people" class="sample-cat-btn px-3 py-1 rounded-lg bg-slate-100 text-slate-600 hover:bg-slate-200 font-medium">인물/프로필</button>
+                </div>
+              </div>
+
+              <!-- View C: Local File Upload -->
+              <div id="viewUpload" class="hidden space-y-3">
+                <label for="imageFileInput"
+                  class="flex flex-col items-center justify-center p-6 border-2 border-dashed border-slate-300 hover:border-blue-500 rounded-2xl bg-slate-50 hover:bg-blue-50/50 cursor-pointer transition-all">
+                  <i data-lucide="cloud-upload" class="w-8 h-8 text-blue-500 mb-2"></i>
+                  <span class="text-xs font-bold text-slate-800">클릭하여 이미지 파일 선택</span>
+                  <span class="text-[11px] text-slate-400 mt-1">PNG, JPG, WEBP 지원 (최대 10MB)</span>
+                  <input type="file" id="imageFileInput" accept="image/*" class="hidden" />
+                </label>
+              </div>
+
+              <!-- Grid Thumbnail Gallery Output -->
+              <div class="space-y-2">
+                <div class="flex items-center justify-between text-xs text-slate-500">
+                  <span id="galleryTitle" class="font-semibold text-slate-700">썸네일 목록 (클릭 시 적용)</span>
+                  <span id="searchResultCount" class="text-[11px]">8개 표시 중</span>
+                </div>
+
+                <div id="thumbnailGrid" class="grid grid-cols-2 sm:grid-cols-4 gap-3 max-h-64 overflow-y-auto p-1 bg-slate-50 rounded-xl border border-slate-200">
+                  <!-- Thumbnail cards will be injected dynamically via JS -->
+                </div>
+              </div>
+            </div>
+
+            <!-- Speaker Image Settings (Only relevant when speaker slot or speaker toggle active) -->
+            <div id="speakerControlsBox" class="pt-4 border-t border-slate-100 space-y-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <i data-lucide="user-check" class="w-4 h-4 text-blue-600"></i>
+                  인물(화자) 프로필 프레임 표시
+                </span>
+                <input type="checkbox" id="toggleSpeakerImage" checked class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500" />
+              </div>
+
+              <div id="speakerOptionsSub" class="space-y-3 pl-2 border-l-2 border-blue-200">
+                <!-- Frame Shape options -->
+                <div>
+                  <label class="block text-xs font-semibold text-slate-600 mb-1">프레임 모양</label>
+                  <div class="flex gap-2">
+                    <button type="button" id="speakerShapeCircle" class="px-3 py-1 text-xs rounded-lg bg-blue-600 text-white font-medium">원형 (Circle)</button>
+                    <button type="button" id="speakerShapeSquare" class="px-3 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-medium">사각형 (Square)</button>
+                    <button type="button" id="speakerShapeRing" class="px-3 py-1 text-xs rounded-lg bg-slate-100 text-slate-600 font-medium">링 배지 (Ring)</button>
+                  </div>
+                </div>
+
+                <!-- Size & Position Sliders -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <div class="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                      <span>프로필 크기</span>
+                      <span id="speakerSizeVal" class="text-blue-600">120px</span>
+                    </div>
+                    <input type="range" id="speakerSizeSlider" min="60" max="240" value="120" step="5"
+                      class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                  </div>
+                  <div>
+                    <div class="flex justify-between text-[11px] font-semibold text-slate-600 mb-1">
+                      <span>수직 위치 (Y축)</span>
+                      <span id="speakerPosYVal" class="text-blue-600">중앙 상단</span>
+                    </div>
+                    <input type="range" id="speakerPosYSlider" min="10" max="90" value="25" step="1"
+                      class="w-full h-1.5 bg-slate-200 rounded-lg appearance-none cursor-pointer accent-blue-600" />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+        </div>
+
+
+        <!-- ==================== RIGHT COLUMN: LIVE CANVAS PREVIEW & DOWNLOAD (lg:col-span-6) ==================== -->
+        <div class="lg:col-span-6 order-1 lg:order-2 lg:sticky lg:top-20 space-y-5">
+          <div class="bg-white rounded-2xl p-6 border border-slate-200 shadow-lg flex flex-col items-center">
+            
+            <div class="w-full flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+              <div class="flex items-center gap-2">
+                <i data-lucide="eye" class="w-5 h-5 text-blue-600"></i>
+                <h3 class="font-bold text-slate-900 text-base">라이브 프리뷰 (Live Canvas)</h3>
+              </div>
+              
+              <!-- Aspect Ratio Selector -->
+              <div class="flex items-center gap-1 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                <button type="button" id="ratioSquare" class="px-2.5 py-1 rounded-lg bg-white text-blue-600 font-bold shadow-sm">1:1 (정사각형)</button>
+                <button type="button" id="ratioStory" class="px-2.5 py-1 rounded-lg text-slate-600 font-medium hover:text-slate-900">4:5 (인스타)</button>
+              </div>
+            </div>
+
+            <!-- Canvas Render Container -->
+            <div class="relative w-full flex items-center justify-center p-2 bg-slate-100 rounded-2xl border border-slate-200 shadow-inner overflow-hidden min-h-[340px] sm:min-h-[460px]">
+              <canvas id="quoteCanvas" width="1080" height="1080"
+                class="w-full max-w-[480px] h-auto rounded-xl shadow-2xl transition-all object-contain bg-white">
+              </canvas>
+            </div>
+
+            <!-- Download & Export Controls -->
+            <div class="w-full mt-6 pt-4 border-t border-slate-100 space-y-4">
+              <!-- Format Selection Toggle -->
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-700">저장 포맷 선택:</span>
+                <div class="flex items-center gap-2 bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs">
+                  <button type="button" id="formatPNG" class="px-3 py-1 rounded-lg bg-white text-blue-600 font-bold shadow-sm">PNG (고화질)</button>
+                  <button type="button" id="formatJPG" class="px-3 py-1 rounded-lg text-slate-600 font-medium hover:text-slate-900">JPG (압축)</button>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button type="button" id="downloadBtn"
+                  class="w-full py-3.5 px-4 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition-all duration-200 flex items-center justify-center gap-2">
+                  <i data-lucide="download" class="w-5 h-5"></i>
+                  <span>이미지 다운로드</span>
+                </button>
+
+                <button type="button" id="copyBtn"
+                  class="w-full py-3.5 px-4 bg-slate-900 hover:bg-slate-800 active:bg-slate-950 text-white font-bold text-sm rounded-xl shadow-md hover:shadow-lg transition-all duration-200 flex items-center justify-center gap-2">
+                  <i data-lucide="copy" class="w-5 h-5"></i>
+                  <span>클립보드 복사</span>
+                </button>
+              </div>
+
+              <p class="text-[11px] text-center text-slate-400">
+                다운로드 파일명: <code id="filenamePreview" class="text-slate-600 font-mono font-semibold">quote-card.png</code>
+              </p>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 mt-8">
+      <div class="max-w-7xl mx-auto px-4 text-center text-xs text-slate-500">
+        QuoteCard Studio &copy; 2026. 명언 & 성경구절 이미지 카드 제작 서비스. All rights reserved.
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Toast Notification Container -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-20 opacity-0 transition-all duration-300 pointer-events-none">
+    <div id="toastContent" class="px-4 py-3 bg-slate-900 text-white text-xs font-semibold rounded-xl shadow-2xl flex items-center gap-2 border border-slate-700">
+      <i data-lucide="check-circle" class="w-4 h-4 text-emerald-400"></i>
+      <span id="toastMsg">처리되었습니다.</span>
+    </div>
+  </div>
+
+  <!-- App Main Entry Point Script -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
