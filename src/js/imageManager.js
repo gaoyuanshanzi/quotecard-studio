@@ -93,31 +93,31 @@ export class ImageManager {
 
     // Reset tabs UI
     [this.methodTabSearch, this.methodTabSample, this.methodTabUpload].forEach(tab => {
-      tab.className = 'px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-all flex items-center gap-1';
+      if (tab) tab.className = 'px-3 py-1.5 text-xs font-semibold text-slate-500 hover:text-slate-900 transition-all flex items-center gap-1';
     });
 
-    this.viewSearch.classList.add('hidden');
-    this.viewSample.classList.add('hidden');
-    this.viewUpload.classList.add('hidden');
+    this.viewSearch?.classList.add('hidden');
+    this.viewSample?.classList.add('hidden');
+    this.viewUpload?.classList.add('hidden');
 
     if (method === 'search') {
-      this.methodTabSearch.className = 'px-3 py-1.5 text-xs font-semibold text-blue-600 border-b-2 border-blue-600 transition-all flex items-center gap-1';
-      this.viewSearch.classList.remove('hidden');
-      this.galleryTitle.textContent = '인터넷 검색 결과 (클릭 시 적용)';
+      if (this.methodTabSearch) this.methodTabSearch.className = 'px-3 py-1.5 text-xs font-semibold text-blue-600 border-b-2 border-blue-600 transition-all flex items-center gap-1';
+      this.viewSearch?.classList.remove('hidden');
+      if (this.galleryTitle) this.galleryTitle.textContent = '인터넷 검색 결과 (클릭 시 적용)';
     } else if (method === 'sample') {
-      this.methodTabSample.className = 'px-3 py-1.5 text-xs font-semibold text-blue-600 border-b-2 border-blue-600 transition-all flex items-center gap-1';
-      this.viewSample.classList.remove('hidden');
-      this.galleryTitle.textContent = '추천 샘플 이미지 (클릭 시 적용)';
+      if (this.methodTabSample) this.methodTabSample.className = 'px-3 py-1.5 text-xs font-semibold text-blue-600 border-b-2 border-blue-600 transition-all flex items-center gap-1';
+      this.viewSample?.classList.remove('hidden');
+      if (this.galleryTitle) this.galleryTitle.textContent = '추천 샘플 이미지 (클릭 시 적용)';
       this.renderSamples();
     } else if (method === 'upload') {
-      this.methodTabUpload.className = 'px-3 py-1.5 text-xs font-semibold text-blue-600 border-b-2 border-blue-600 transition-all flex items-center gap-1';
-      this.viewUpload.classList.remove('hidden');
-      this.galleryTitle.textContent = '최근 사용한 이미지 (클릭 시 적용)';
+      if (this.methodTabUpload) this.methodTabUpload.className = 'px-3 py-1.5 text-xs font-semibold text-blue-600 border-b-2 border-blue-600 transition-all flex items-center gap-1';
+      this.viewUpload?.classList.remove('hidden');
+      if (this.galleryTitle) this.galleryTitle.textContent = '최근 사용한 이미지 (클릭 시 적용)';
     }
   }
 
   async handleSearch() {
-    const query = this.searchInput.value.trim();
+    const query = this.searchInput ? this.searchInput.value.trim() : '';
     if (!query) return;
 
     this.thumbnailGrid.innerHTML = `
@@ -168,7 +168,6 @@ export class ImageManager {
       const dataUrl = evt.target.result;
       this.applyImageSelection(dataUrl);
 
-      // Prepend to thumbnail grid for quick re-selection
       const newItem = {
         id: `upload-${Date.now()}`,
         url: dataUrl,
@@ -189,7 +188,9 @@ export class ImageManager {
 
   renderGridItems(items, isSampleFallback = false) {
     this.thumbnailGrid.innerHTML = '';
-    this.searchResultCount.textContent = `${items.length}개 표시 중`;
+    if (this.searchResultCount) {
+      this.searchResultCount.textContent = `${items.length}개 표시 중`;
+    }
 
     if (items.length === 0) {
       this.thumbnailGrid.innerHTML = `<div class="col-span-4 py-6 text-center text-xs text-slate-400">검색 결과가 없습니다.</div>`;
@@ -211,11 +212,12 @@ export class ImageManager {
     if (item.source === 'Google') badgeBg = 'bg-blue-600 text-white';
     else if (item.source === 'Unsplash') badgeBg = 'bg-slate-900 text-white';
     else if (item.source === 'Pixabay') badgeBg = 'bg-emerald-600 text-white';
+    else if (item.source === 'Wikimedia') badgeBg = 'bg-indigo-600 text-white';
     else if (item.source === 'Sample') badgeBg = 'bg-amber-600 text-white';
     else if (item.source === 'Upload') badgeBg = 'bg-purple-600 text-white';
 
     div.innerHTML = `
-      <img src="${item.thumbUrl || item.url}" alt="${item.title || 'thumbnail'}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" />
+      <img src="${item.thumbUrl || item.url}" alt="${item.title || 'thumbnail'}" class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" loading="lazy" onError="this.src='https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&q=80'" />
       
       <!-- Source Badge -->
       <span class="absolute top-1 left-1 px-1.5 py-0.5 rounded text-[9px] font-bold ${badgeBg} shadow-sm">
