@@ -109,35 +109,64 @@ export class CanvasRenderer {
       ctx.fillRect(0, 0, w, h);
     }
 
-    // 3. Draw Speaker (Person) Profile Image if Enabled
-    let textStartY = h * 0.45;
+    // 3. Dynamic Height Calculation for PERFECT Vertical & Horizontal Center Alignment
+    ctx.save();
+    const fontSizePx = this.state.fontSize * 1.25; // Scale for HD canvas
+    ctx.font = `600 ${fontSizePx}px ${this.state.fontFamily}`;
 
-    if (this.state.showSpeaker && this.speakerImageObj) {
-      const speakerSize = this.state.speakerSize * 1.5; // Scale for HD canvas
-      const cx = w / 2;
-      const cy = (h * (this.state.speakerPosY / 100));
+    const maxWidth = w * 0.82;
+    const lines = this.getWrappedLines(ctx, this.state.quoteText, maxWidth);
+    const lineHeight = fontSizePx * 1.45;
+    const quoteTextTotalHeight = lines.length * lineHeight;
 
-      this.drawSpeakerProfile(ctx, this.speakerImageObj, cx, cy, speakerSize, this.state.speakerShape);
+    const quoteMarkHeight = 35;
+    const quoteMarkGap = 20;
 
-      // Adjust text position under speaker image if Y is top-aligned
-      if (this.state.speakerPosY < 40) {
-        textStartY = cy + (speakerSize / 2) + 60;
+    const showProfile = this.state.showSpeaker && this.speakerImageObj;
+    const speakerSize = this.state.speakerSize * 1.5;
+    let profileHeight = 0;
+    if (showProfile) {
+      profileHeight = speakerSize + 30;
+    }
+
+    let speakerBlockHeight = 0;
+    const hasSpeakerInfo = this.state.speakerName || this.state.speakerTitle;
+    if (hasSpeakerInfo) {
+      speakerBlockHeight += 35;
+      if (this.state.speakerName) {
+        speakerBlockHeight += (fontSizePx * 0.65) + 10;
+      }
+      if (this.state.speakerTitle) {
+        speakerBlockHeight += (fontSizePx * 0.5) + 6;
       }
     }
 
-    // 4. Draw Decorative Opening Quote Icon
-    this.drawQuoteMark(ctx, w / 2, textStartY - 40);
+    // Calculate Total Height of Entire Content Block
+    const totalBlockHeight = profileHeight + quoteMarkHeight + quoteMarkGap + quoteTextTotalHeight + speakerBlockHeight;
 
-    // 5. Draw Main Quote Text
-    ctx.save();
+    // Calculate Starting Top Y for Perfect Vertical Centering (50% Center Axis)
+    let blockStartY = (h - totalBlockHeight) / 2;
+    if (blockStartY < 40) blockStartY = 40;
+
+    let currentY = blockStartY;
+
+    // A. Render Speaker Profile Image (if active)
+    if (showProfile) {
+      const cx = w / 2;
+      const cy = currentY + (speakerSize / 2);
+      this.drawSpeakerProfile(ctx, this.speakerImageObj, cx, cy, speakerSize, this.state.speakerShape);
+      currentY += profileHeight;
+    }
+
+    // B. Render Opening Quote Mark
+    this.drawQuoteMark(ctx, w / 2, currentY + (quoteMarkHeight / 2));
+    currentY += quoteMarkHeight + quoteMarkGap;
+
+    // C. Render Main Quote Text
     ctx.fillStyle = this.state.textColor;
     ctx.textAlign = this.state.alignment;
     ctx.textBaseline = 'top';
 
-    const fontSizePx = this.state.fontSize * 1.25; // HD canvas scaling factor
-    ctx.font = `600 ${fontSizePx}px ${this.state.fontFamily}`;
-
-    // Apply Shadow / Stroke
     if (this.state.hasShadow) {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
       ctx.shadowBlur = 16;
@@ -152,26 +181,21 @@ export class CanvasRenderer {
       ctx.lineWidth = 4;
     }
 
-    const maxWidth = w * 0.82;
-    const lines = this.getWrappedLines(ctx, this.state.quoteText, maxWidth);
-    const lineHeight = fontSizePx * 1.45;
-
     let startX = w / 2;
     if (this.state.alignment === 'left') startX = w * 0.09;
     if (this.state.alignment === 'right') startX = w * 0.91;
 
-    let currentY = textStartY;
     lines.forEach(line => {
       if (this.state.hasStroke) ctx.strokeText(line, startX, currentY);
       ctx.fillText(line, startX, currentY);
       currentY += lineHeight;
     });
 
-    // 6. Draw Speaker Name & Title
-    if (this.state.speakerName || this.state.speakerTitle) {
-      currentY += 40;
+    // D. Render Speaker Name & Title Block
+    if (hasSpeakerInfo) {
+      currentY += 20;
 
-      // Decorative divider line
+      // Divider Line
       ctx.beginPath();
       ctx.lineWidth = 2;
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
@@ -187,14 +211,14 @@ export class CanvasRenderer {
       }
       ctx.stroke();
 
-      currentY += 30;
+      currentY += 25;
 
       // Speaker Name
       if (this.state.speakerName) {
         ctx.font = `700 ${fontSizePx * 0.65}px ${this.state.fontFamily}`;
         if (this.state.hasStroke) ctx.strokeText(this.state.speakerName, startX, currentY);
         ctx.fillText(this.state.speakerName, startX, currentY);
-        currentY += (fontSizePx * 0.7) + 8;
+        currentY += (fontSizePx * 0.65) + 10;
       }
 
       // Speaker Title
