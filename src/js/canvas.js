@@ -1,6 +1,7 @@
 /**
  * HTML5 Canvas Quote Card Renderer
- * Handles real-time image composition, typography wrapping, profile clipping, and export.
+ * Handles real-time image composition, rich text formatted runs ([highlighted text]),
+ * multi-line speaker names/titles, profile clipping, and export.
  */
 
 export class CanvasRenderer {
@@ -20,21 +21,23 @@ export class CanvasRenderer {
 
     // State parameters
     this.state = {
-      quoteText: '너희는 세상의 빛이라 산 위에 있는 동네가 숨겨지지 못할 것이요 (마태복음 5:14)',
+      quoteText: '너희는 세상의 [빛]이라 산 위에 있는 동네가 숨겨지지 못할 것이요 (마태복음 5:14)',
       speakerName: '예수 그리스도',
       speakerTitle: '마태복음 5장 14절',
       fontFamily: "'Noto Serif KR', serif",
       fontSize: 38,
       textColor: '#ffffff',
-      alignment: 'center', // 'left' | 'center' | 'right'
+      highlightColor: '#facc15', // Default vibrant yellow
+      highlightScale: 1.3,       // 1.3x size for highlighted words
+      alignment: 'center',       // 'left' | 'center' | 'right'
       hasShadow: true,
       hasStroke: false,
       overlayOpacity: 0.45,
       showSpeaker: true,
-      speakerShape: 'circle', // 'circle' | 'square' | 'ring'
+      speakerShape: 'circle',    // 'circle' | 'square' | 'ring'
       speakerSize: 130,
-      speakerPosY: 26, // Percentage from top
-      aspectRatio: '1:1', // '1:1' | '4:5'
+      speakerPosY: 26,           // Percentage from top
+      aspectRatio: '1:1',        // '1:1' | '4:5'
       bgUrl: '',
       speakerUrl: ''
     };
@@ -74,13 +77,81 @@ export class CanvasRenderer {
       img.onload = () => resolve(img);
       img.onerror = () => {
         console.warn('Failed to load image cross-origin:', url);
-        // Fallback placeholder image
         const fallback = new Image();
         fallback.onload = () => resolve(fallback);
         fallback.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="400" height="400" viewBox="0 0 400 400"><rect width="400" height="400" fill="%23334155"/><text x="50%" y="50%" font-size="20" fill="%23ffffff" text-anchor="middle" dominant-baseline="middle">QuoteCard Studio</text></svg>';
       };
       img.src = url;
     });
+  }
+
+  // --- Rich Text Formatting Parsers ---
+  parseTextRuns(text) {
+    const regex = /\[(.*?)\]/g;
+    const runs = [];
+    let lastIdx = 0;
+    let match;
+
+    while ((match = regex.exec(text)) !== null) {
+      if (match.index > lastIdx) {
+        runs.push({ text: text.slice(lastIdx, match.index), isHighlight: false });
+      }
+      runs.push({ text: match[1], isHighlight: true });
+      lastIdx = regex.lastIndex;
+    }
+
+    if (lastIdx < text.length) {
+      runs.push({ text: text.slice(lastIdx), isHighlight: false });
+    }
+
+    return runs;
+  }
+
+  tokenizeFormattedText(text) {
+    const runs = this.parseTextRuns(text);
+    const tokens = [];
+
+    runs.forEach(run => {
+      const parts = run.text.split(/(\s+)/);
+      parts.forEach(p => {
+        if (p.length > 0) {
+          tokens.push({ text: p, isHighlight: run.isHighlight });
+        }
+      });
+    });
+
+    return tokens;
+  }
+
+  getWrappedFormattedLines(ctx, text, maxWidth, baseFont, highlightFont) {
+    const tokens = this.tokenizeFormattedText(text);
+    const lines = [];
+    let currentLine = [];
+    let currentLineWidth = 0;
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+      ctx.font = token.isHighlight ? highlightFont : baseFont;
+      const tokenWidth = ctx.measureText(token.text).width;
+
+      if (currentLine.length === 0) {
+        currentLine.push(token);
+        currentLineWidth = tokenWidth;
+      } else if (currentLineWidth + tokenWidth <= maxWidth) {
+        currentLine.push(token);
+        currentLineWidth += tokenWidth;
+      } else {
+        lines.push(currentLine);
+        currentLine = [token];
+        currentLineWidth = tokenWidth;
+      }
+    }
+
+    if (currentLine.length > 0) {
+      lines.push(currentLine);
+    }
+
+    return lines;
   }
 
   render() {
@@ -95,7 +166,6 @@ export class CanvasRenderer {
     if (this.bgImageObj) {
       this.drawCoverImage(ctx, this.bgImageObj, 0, 0, w, h);
     } else {
-      // Default Gradient Background
       const grad = ctx.createLinearGradient(0, 0, w, h);
       grad.addColorStop(0, '#1e293b');
       grad.addColorStop(1, '#0f172a');
@@ -109,15 +179,17 @@ export class CanvasRenderer {
       ctx.fillRect(0, 0, w, h);
     }
 
-    // 3. Dynamic Height Calculation for PERFECT Vertical & Horizontal Center Alignment
+    // 3. Fonts Setup
     ctx.save();
     const fontSizePx = this.state.fontSize * 1.25; // Scale for HD canvas
-    ctx.font = `600 ${fontSizePx}px ${this.state.fontFamily}`;
+    const baseFont = `600 ${fontSizePx}px ${this.state.fontFamily}`;
+    const highlightFontSizePx = fontSizePx * (this.state.highlightScale || 1.3);
+    const highlightFont = `700 ${highlightFontSizePx}px ${this.state.fontFamily}`;
 
     const maxWidth = w * 0.82;
-    const lines = this.getWrappedLines(ctx, this.state.quoteText, maxWidth);
-    const lineHeight = fontSizePx * 1.45;
-    const quoteTextTotalHeight = lines.length * lineHeight;
+    const formattedLines = this.getWrappedFormattedLines(ctx, this.state.quoteText, maxWidth, baseFont, highlightFont);
+    const lineHeight = Math.max(fontSizePx, highlightFontSizePx) * 1.45;
+    const quoteTextTotalHeight = formattedLines.length * lineHeight;
 
     const quoteMarkHeight = 35;
     const quoteMarkGap = 20;
@@ -129,22 +201,25 @@ export class CanvasRenderer {
       profileHeight = speakerSize + 30;
     }
 
+    // Multi-line Speaker Name & Title calculation
+    const nameLines = (this.state.speakerName || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+    const titleLines = (this.state.speakerTitle || '').split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+    const nameLineHeight = (fontSizePx * 0.65) + 8;
+    const titleLineHeight = (fontSizePx * 0.5) + 6;
+
     let speakerBlockHeight = 0;
-    const hasSpeakerInfo = this.state.speakerName || this.state.speakerTitle;
+    const hasSpeakerInfo = nameLines.length > 0 || titleLines.length > 0;
     if (hasSpeakerInfo) {
-      speakerBlockHeight += 35;
-      if (this.state.speakerName) {
-        speakerBlockHeight += (fontSizePx * 0.65) + 10;
-      }
-      if (this.state.speakerTitle) {
-        speakerBlockHeight += (fontSizePx * 0.5) + 6;
-      }
+      speakerBlockHeight += 35; // Divider gap
+      speakerBlockHeight += nameLines.length * nameLineHeight;
+      speakerBlockHeight += titleLines.length * titleLineHeight;
     }
 
     // Calculate Total Height of Entire Content Block
     const totalBlockHeight = profileHeight + quoteMarkHeight + quoteMarkGap + quoteTextTotalHeight + speakerBlockHeight;
 
-    // Calculate Starting Top Y for Perfect Vertical Centering (50% Center Axis)
+    // Calculate Starting Top Y for Perfect Vertical Centering
     let blockStartY = (h - totalBlockHeight) / 2;
     if (blockStartY < 40) blockStartY = 40;
 
@@ -162,11 +237,7 @@ export class CanvasRenderer {
     this.drawQuoteMark(ctx, w / 2, currentY + (quoteMarkHeight / 2));
     currentY += quoteMarkHeight + quoteMarkGap;
 
-    // C. Render Main Quote Text
-    ctx.fillStyle = this.state.textColor;
-    ctx.textAlign = this.state.alignment;
-    ctx.textBaseline = 'top';
-
+    // C. Render Main Quote Text (Supports Mixed Highlights & Baseline Alignment)
     if (this.state.hasShadow) {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.75)';
       ctx.shadowBlur = 16;
@@ -181,51 +252,85 @@ export class CanvasRenderer {
       ctx.lineWidth = 4;
     }
 
-    let startX = w / 2;
-    if (this.state.alignment === 'left') startX = w * 0.09;
-    if (this.state.alignment === 'right') startX = w * 0.91;
+    ctx.textBaseline = 'alphabetic';
 
-    lines.forEach(line => {
-      if (this.state.hasStroke) ctx.strokeText(line, startX, currentY);
-      ctx.fillText(line, startX, currentY);
+    formattedLines.forEach(lineTokens => {
+      // Measure line total width
+      let lineTotalWidth = 0;
+      lineTokens.forEach(t => {
+        ctx.font = t.isHighlight ? highlightFont : baseFont;
+        lineTotalWidth += ctx.measureText(t.text).width;
+      });
+
+      let tokenX = w / 2 - (lineTotalWidth / 2);
+      if (this.state.alignment === 'left') tokenX = w * 0.09;
+      if (this.state.alignment === 'right') tokenX = w * 0.91 - lineTotalWidth;
+
+      const baselineY = currentY + fontSizePx * 1.0;
+
+      lineTokens.forEach(t => {
+        ctx.font = t.isHighlight ? highlightFont : baseFont;
+        ctx.fillStyle = t.isHighlight ? (this.state.highlightColor || '#facc15') : this.state.textColor;
+
+        if (this.state.hasStroke) ctx.strokeText(t.text, tokenX, baselineY);
+        ctx.fillText(t.text, tokenX, baselineY);
+
+        tokenX += ctx.measureText(t.text).width;
+      });
+
       currentY += lineHeight;
     });
 
-    // D. Render Speaker Name & Title Block
+    // D. Render Multi-line Speaker Name & Title Block
     if (hasSpeakerInfo) {
       currentY += 20;
 
       // Divider Line
+      let dividerStartX = w / 2 - 40;
+      let dividerEndX = w / 2 + 40;
+      if (this.state.alignment === 'left') {
+        dividerStartX = w * 0.09;
+        dividerEndX = w * 0.09 + 80;
+      } else if (this.state.alignment === 'right') {
+        dividerStartX = w * 0.91 - 80;
+        dividerEndX = w * 0.91;
+      }
+
       ctx.beginPath();
       ctx.lineWidth = 2;
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';
-      if (this.state.alignment === 'center') {
-        ctx.moveTo(w / 2 - 40, currentY);
-        ctx.lineTo(w / 2 + 40, currentY);
-      } else if (this.state.alignment === 'left') {
-        ctx.moveTo(startX, currentY);
-        ctx.lineTo(startX + 80, currentY);
-      } else {
-        ctx.moveTo(startX - 80, currentY);
-        ctx.lineTo(startX, currentY);
-      }
+      ctx.moveTo(dividerStartX, currentY);
+      ctx.lineTo(dividerEndX, currentY);
       ctx.stroke();
 
       currentY += 25;
 
-      // Speaker Name
-      if (this.state.speakerName) {
+      ctx.textAlign = this.state.alignment;
+      let textX = w / 2;
+      if (this.state.alignment === 'left') textX = w * 0.09;
+      if (this.state.alignment === 'right') textX = w * 0.91;
+
+      // Speaker Name Lines
+      if (nameLines.length > 0) {
         ctx.font = `700 ${fontSizePx * 0.65}px ${this.state.fontFamily}`;
-        if (this.state.hasStroke) ctx.strokeText(this.state.speakerName, startX, currentY);
-        ctx.fillText(this.state.speakerName, startX, currentY);
-        currentY += (fontSizePx * 0.65) + 10;
+        ctx.fillStyle = this.state.textColor;
+        nameLines.forEach(l => {
+          if (this.state.hasStroke) ctx.strokeText(l, textX, currentY + (fontSizePx * 0.6));
+          ctx.fillText(l, textX, currentY + (fontSizePx * 0.6));
+          currentY += nameLineHeight;
+        });
       }
 
-      // Speaker Title
-      if (this.state.speakerTitle) {
+      // Speaker Title Lines
+      if (titleLines.length > 0) {
+        currentY += 4;
         ctx.font = `400 ${fontSizePx * 0.5}px ${this.state.fontFamily}`;
         ctx.fillStyle = 'rgba(255, 255, 255, 0.85)';
-        ctx.fillText(this.state.speakerTitle, startX, currentY);
+        titleLines.forEach(l => {
+          if (this.state.hasStroke) ctx.strokeText(l, textX, currentY + (fontSizePx * 0.45));
+          ctx.fillText(l, textX, currentY + (fontSizePx * 0.45));
+          currentY += titleLineHeight;
+        });
       }
     }
 
@@ -253,7 +358,6 @@ export class CanvasRenderer {
 
   drawSpeakerProfile(ctx, img, cx, cy, size, shape) {
     ctx.save();
-
     const r = size / 2;
 
     if (shape === 'circle' || shape === 'ring') {
@@ -264,7 +368,6 @@ export class CanvasRenderer {
       ctx.drawImage(img, cx - r, cy - r, size, size);
       ctx.restore();
 
-      // Draw Ring Border
       ctx.save();
       ctx.beginPath();
       ctx.arc(cx, cy, r + 4, 0, Math.PI * 2);
@@ -275,7 +378,6 @@ export class CanvasRenderer {
       ctx.stroke();
       ctx.restore();
     } else {
-      // Square / Rounded
       const rectX = cx - r;
       const rectY = cy - r;
       ctx.beginPath();
@@ -284,7 +386,6 @@ export class CanvasRenderer {
       ctx.drawImage(img, rectX, rectY, size, size);
       ctx.restore();
 
-      // Border
       ctx.save();
       ctx.beginPath();
       ctx.roundRect(rectX - 2, rectY - 2, size + 4, size + 4, 22);
@@ -302,25 +403,6 @@ export class CanvasRenderer {
     ctx.textAlign = 'center';
     ctx.fillText('“', cx, cy);
     ctx.restore();
-  }
-
-  getWrappedLines(ctx, text, maxWidth) {
-    const words = text.split(' ');
-    const lines = [];
-    let currentLine = words[0] || '';
-
-    for (let i = 1; i < words.length; i++) {
-      const word = words[i];
-      const width = ctx.measureText(currentLine + ' ' + word).width;
-      if (width < maxWidth) {
-        currentLine += ' ' + word;
-      } else {
-        lines.push(currentLine);
-        currentLine = word;
-      }
-    }
-    lines.push(currentLine);
-    return lines;
   }
 
   downloadImage(format = 'png') {

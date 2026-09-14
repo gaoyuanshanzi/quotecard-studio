@@ -78,6 +78,7 @@ class App {
     const charCounter = document.getElementById('charCounter');
     const speakerNameInput = document.getElementById('speakerName');
     const speakerTitleInput = document.getElementById('speakerTitle');
+    const btnApplyHighlight = document.getElementById('btnApplyHighlight');
 
     const updateText = () => {
       const len = quoteTextarea.value.length;
@@ -94,6 +95,31 @@ class App {
     quoteTextarea?.addEventListener('input', updateText);
     speakerNameInput?.addEventListener('input', updateText);
     speakerTitleInput?.addEventListener('input', updateText);
+
+    // Apply Highlight [ ] button handler
+    btnApplyHighlight?.addEventListener('click', () => {
+      if (!quoteTextarea) return;
+
+      const start = quoteTextarea.selectionStart;
+      const end = quoteTextarea.selectionEnd;
+      const val = quoteTextarea.value;
+
+      let selectedText = val.substring(start, end);
+      if (!selectedText) {
+        selectedText = '강조';
+      }
+
+      // Strip existing brackets inside selection if any
+      selectedText = selectedText.replace(/^\[|\]$/g, '');
+      const replacement = `[${selectedText}]`;
+
+      quoteTextarea.value = val.substring(0, start) + replacement + val.substring(end);
+      quoteTextarea.focus();
+      quoteTextarea.setSelectionRange(start + 1, start + 1 + selectedText.length);
+
+      updateText();
+      this.showToast(`'${selectedText}' 단어가 강조 적용되었습니다!`);
+    });
 
     // 2. Font Family & Size Slider
     const fontFamilySelect = document.getElementById('fontFamilySelect');
@@ -119,9 +145,9 @@ class App {
 
     const setAlign = (align, activeBtn) => {
       [alignLeft, alignCenter, alignRight].forEach(b => {
-        b.className = 'flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center';
+        if (b) b.className = 'flex-1 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900 transition-all flex items-center justify-center';
       });
-      activeBtn.className = 'flex-1 py-1.5 text-xs font-medium rounded-lg bg-white text-blue-600 shadow-sm transition-all flex items-center justify-center';
+      if (activeBtn) activeBtn.className = 'flex-1 py-1.5 text-xs font-medium rounded-lg bg-white text-blue-600 shadow-sm transition-all flex items-center justify-center';
 
       this.canvasRenderer.updateState({ alignment: align });
       this.canvasRenderer.render();
@@ -131,7 +157,7 @@ class App {
     alignCenter?.addEventListener('click', () => setAlign('center', alignCenter));
     alignRight?.addEventListener('click', () => setAlign('right', alignRight));
 
-    // 4. Color Picker & Swatches
+    // 4. Base Color Picker & Swatches
     const textColorPicker = document.getElementById('textColorPicker');
     textColorPicker?.addEventListener('input', (e) => {
       this.canvasRenderer.updateState({ textColor: e.target.value });
@@ -147,7 +173,33 @@ class App {
       });
     });
 
-    // 5. Shadow, Stroke, Overlay
+    // 5. Highlight Color & Scale Controls
+    const highlightColorPicker = document.getElementById('highlightColorPicker');
+    const highlightScaleSlider = document.getElementById('highlightScaleSlider');
+    const highlightScaleVal = document.getElementById('highlightScaleVal');
+
+    highlightColorPicker?.addEventListener('input', (e) => {
+      this.canvasRenderer.updateState({ highlightColor: e.target.value });
+      this.canvasRenderer.render();
+    });
+
+    document.querySelectorAll('button[data-highlight-color]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const color = e.currentTarget.getAttribute('data-highlight-color');
+        if (highlightColorPicker) highlightColorPicker.value = color;
+        this.canvasRenderer.updateState({ highlightColor: color });
+        this.canvasRenderer.render();
+      });
+    });
+
+    highlightScaleSlider?.addEventListener('input', (e) => {
+      const val = e.target.value;
+      if (highlightScaleVal) highlightScaleVal.textContent = `${val}x`;
+      this.canvasRenderer.updateState({ highlightScale: parseFloat(val) });
+      this.canvasRenderer.render();
+    });
+
+    // 6. Shadow, Stroke, Overlay
     const toggleShadow = document.getElementById('toggleShadow');
     const toggleStroke = document.getElementById('toggleStroke');
     const overlayOpacitySlider = document.getElementById('overlayOpacitySlider');
